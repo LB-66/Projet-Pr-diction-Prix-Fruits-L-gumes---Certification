@@ -1,0 +1,22 @@
+{
+  "features": [
+    "prix_detail",
+    "rendement",
+    "taille_cup",
+    "forme_encoded",
+    "categorie_encoded",
+    "annee",
+    "production_lbs",
+    "temp_moyenne",
+    "jours_gel",
+    "prix_diesel",
+    "prix_electricite",
+    "urea"
+  ],
+  "cible": "prix_cup",
+  "n_features": 12,
+  "modele": "XGBoost",
+  "r2_test": 0.9755,
+  "rmse_test": 0.0886,
+  "version": "1.0"
+}

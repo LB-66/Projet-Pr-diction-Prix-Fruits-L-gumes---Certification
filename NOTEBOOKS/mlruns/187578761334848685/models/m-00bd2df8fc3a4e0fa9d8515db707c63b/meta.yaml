@@ -1,0 +1,11 @@
+artifact_location: file:C:/Users/Utilisateur/Documents/CERTIFICATION - DEV IA - 2026
+  - Prédiction des prix des fruits et légumes/NOTEBOOKS/mlruns/187578761334848685/models/m-00bd2df8fc3a4e0fa9d8515db707c63b/artifacts
+creation_timestamp: 1775638051577
+experiment_id: '187578761334848685'
+last_updated_timestamp: 1775638071285
+model_id: m-00bd2df8fc3a4e0fa9d8515db707c63b
+model_type: null
+name: model
+source_run_id: c84a8a93af704ed6b0818103cd458a89
+status: 2
+status_message: null

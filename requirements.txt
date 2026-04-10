@@ -1,0 +1,16 @@
+python = 3.13.5
+pandas
+sqlalchemy
+psycopg2-binary
+python-dotenv
+lxml
+matplotlib
+seaborn
+xgboost
+missingno
+dotenv
+psycopg2
+pg8000
+psycopg2-binary
+shap 
+mlflow

@@ -1,0 +1,15 @@
+artifact_uri: file:C:/Users/Utilisateur/Documents/CERTIFICATION - DEV IA - 2026 -
+  Prédiction des prix des fruits et légumes/NOTEBOOKS/mlruns/187578761334848685/b12ccdc47db24ede9d906171ce63b2a0/artifacts
+end_time: 1775638119524
+entry_point_name: ''
+experiment_id: '187578761334848685'
+lifecycle_stage: active
+run_id: b12ccdc47db24ede9d906171ce63b2a0
+run_name: GradientBoosting_v1_sklearn
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1775638119105
+status: 3
+tags: []
+user_id: Utilisateur

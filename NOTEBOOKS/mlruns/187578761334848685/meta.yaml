@@ -1,0 +1,9 @@
+artifact_location: file:C:/Users/Utilisateur/Documents/CERTIFICATION - DEV IA - 2026
+  - Prédiction des prix des fruits et légumes/NOTEBOOKS/mlruns/187578761334848685
+creation_time: 1775638029298
+experiment_id: '187578761334848685'
+last_update_time: 1775638029298
+lifecycle_stage: active
+name: Fruits_Legumes_Prix_Prediction
+trace_location: null
+workspace: default

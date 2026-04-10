@@ -1,0 +1,42 @@
+artifact_path: "file:C:/Users/Utilisateur/Documents/CERTIFICATION - DEV IA - 2026\
+  \ - Pr\xE9diction des prix des fruits et l\xE9gumes/NOTEBOOKS/mlruns/187578761334848685/models/m-db5b5c9b60544bc8b3f9bab0e792ddbd/artifacts"
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.13.5
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBRegressor
+    model_format: ubj
+    xgb_version: 3.2.0
+is_signature_from_type_hint: false
+mlflow_version: 3.11.1
+model_id: m-db5b5c9b60544bc8b3f9bab0e792ddbd
+model_size_bytes: 283535
+model_uuid: m-db5b5c9b60544bc8b3f9bab0e792ddbd
+prompts: null
+run_id: 3c51e33229ab49e1ab805a66ed06d065
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "prix_detail", "required": true}, {"type":
+    "double", "name": "rendement", "required": true}, {"type": "double", "name": "taille_cup",
+    "required": true}, {"type": "long", "name": "forme_encoded", "required": true},
+    {"type": "long", "name": "categorie_encoded", "required": true}, {"type": "long",
+    "name": "annee", "required": true}, {"type": "double", "name": "production_lbs",
+    "required": true}, {"type": "double", "name": "temp_moyenne", "required": true},
+    {"type": "double", "name": "jours_gel", "required": true}, {"type": "double",
+    "name": "prix_diesel", "required": true}, {"type": "double", "name": "prix_electricite",
+    "required": true}, {"type": "double", "name": "urea", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-04-08 09:17:18.684379'

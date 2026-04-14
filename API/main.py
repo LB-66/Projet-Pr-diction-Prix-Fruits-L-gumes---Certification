@@ -28,8 +28,8 @@ app = FastAPI(
 
 # ── Chargement du modèle au démarrage ──
 # On charge le .pkl une seule fois au lancement — pas à chaque requête
-CHEMIN_MODELE   = "../models/xgboost_fruits_legumes.pkl"
-CHEMIN_FEATURES = "../models/features.json"
+CHEMIN_MODELE   = "NOTEBOOKS/models/xgboost_fruits_legumes.pkl"
+CHEMIN_FEATURES = "NOTEBOOKS/models/features.json"
 
 # Chargement du modèle
 if os.path.exists(CHEMIN_MODELE):

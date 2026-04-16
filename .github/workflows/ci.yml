@@ -1,0 +1,47 @@
+name: CI - Tests automatiques
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  tests:
+    name: Tests Pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Telecharger le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer les dependances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Preparer le modele factice pour les tests
+        run: |
+          mkdir -p NOTEBOOKS/models
+          python - <<'EOF'
+          import joblib, json, numpy as np
+          from sklearn.ensemble import GradientBoostingRegressor
+          X = np.random.rand(50, 12)
+          y = np.random.rand(50)
+          m = GradientBoostingRegressor(n_estimators=5, random_state=42)
+          m.fit(X, y)
+          joblib.dump(m, 'NOTEBOOKS/models/xgboost_fruits_legumes.pkl')
+          features = {"features": ["prix_detail","rendement","taille_cup","forme_encoded","categorie_encoded","annee","production_lbs","temp_moyenne","jours_gel","prix_diesel","prix_electricite","urea"]}
+          with open('NOTEBOOKS/models/features.json', 'w') as f:
+              json.dump(features, f)
+          print("Modele CI cree")
+          EOF
+
+      - name: Lancer les tests Pytest
+        run: |
+          pytest tests/ -v --cov=API --cov-report=term-missing

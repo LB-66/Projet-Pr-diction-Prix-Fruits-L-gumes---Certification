@@ -1,0 +1,16 @@
+{
+  "features": [
+    "prix_detail",
+    "rendement",
+    "taille_cup",
+    "forme_encoded",
+    "categorie_encoded",
+    "annee",
+    "production_lbs",
+    "temp_moyenne",
+    "jours_gel",
+    "prix_diesel",
+    "prix_electricite",
+    "urea"
+  ]
+}

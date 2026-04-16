@@ -1,4 +1,4 @@
-python = 3.13.5
+python
 pandas
 sqlalchemy
 psycopg2-binary

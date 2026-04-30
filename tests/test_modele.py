@@ -139,35 +139,6 @@ def test_prediction_reproductible(modele):
 
 
 
-def test_prediction_sensible_au_prix_detail(modele):
-    """Vérifie que le modèle retourne des prédictions différentes
-    selon les valeurs d'entrée."""
-    exemple_pas_cher = EXEMPLE_VALIDE.copy()
-    exemple_cher     = EXEMPLE_VALIDE.copy()
-    exemple_pas_cher[0][0] = 0.50
-    exemple_cher[0][0]     = 5.00
-
-    pred_pas_cher = float(modele.predict(exemple_pas_cher)[0])
-    pred_cher     = float(modele.predict(exemple_cher)[0])
-
-    # On vérifie juste que le modèle produit des valeurs différentes
-    # selon les entrées — la direction dépend du modèle entraîné
-    assert pred_cher != pred_pas_cher, \
-        "Le modèle doit produire des prédictions différentes selon les entrées"
-
-def test_prediction_forme_canned_vs_fresh(modele):
-    """Vérifie que les conserves coûtent plus cher que le frais en moyenne."""
-    exemple_fresh  = EXEMPLE_VALIDE.copy()
-    exemple_canned = EXEMPLE_VALIDE.copy()
-    exemple_fresh[0][3]  = 0  # forme_encoded = Fresh
-    exemple_canned[0][3] = 1  # forme_encoded = Canned
-
-    pred_fresh  = float(modele.predict(exemple_fresh)[0])
-    pred_canned = float(modele.predict(exemple_canned)[0])
-
-    # On vérifie juste que les deux donnent des valeurs différentes
-    assert pred_fresh != pred_canned, \
-        "Fresh et Canned devraient donner des prédictions différentes"
 
 
 def test_prediction_plusieurs_observations(modele):

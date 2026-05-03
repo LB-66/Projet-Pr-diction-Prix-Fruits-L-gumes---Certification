@@ -1,0 +1,5 @@
+outs:
+- md5: 779b07c40069b1bc641b1bf1b6c00202
+  size: 109632
+  hash: md5
+  path: fruits_legumes_enrichi.csv

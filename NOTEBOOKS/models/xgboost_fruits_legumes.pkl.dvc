@@ -1,0 +1,5 @@
+outs:
+- md5: 897de78c2a4cb7e0f55b3098a8fe1fbc
+  size: 285283
+  hash: md5
+  path: xgboost_fruits_legumes.pkl

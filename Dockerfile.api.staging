@@ -1,0 +1,19 @@
+# Dockerfile API — staging
+# Contexte de build depuis la RACINE du projet
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copie des dépendances depuis le dossier API
+COPY API/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copie du code de l'API
+COPY API/main.py .
+
+# Copie du modèle depuis sa vraie location
+COPY NOTEBOOKS/models/xgboost_fruits_legumes.pkl ./models/
+COPY NOTEBOOKS/models/features.json ./models/
+
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

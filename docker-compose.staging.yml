@@ -1,0 +1,43 @@
+# Docker Compose Staging — Fruits et Légumes ML
+# Lance FastAPI + Streamlit dans des conteneurs isolés
+# Commande pour démarrer : docker-compose -f docker-compose.staging.yml up --build
+
+#version: '3.8'
+
+services:
+
+  # Service 1 — API FastAPI (back-end)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api.staging
+    container_name: fruits_legumes_api_staging
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./NOTEBOOKS/models:/app/models
+    restart: unless-stopped
+    networks:
+      - fruits_legumes_network
+
+  # Service 2 — Dashboard Streamlit (front-end)
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit.staging
+    container_name: fruits_legumes_streamlit_staging
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - fruits_legumes_network
+
+networks:
+  fruits_legumes_network:
+    driver: bridge

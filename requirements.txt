@@ -9,6 +9,7 @@ xgboost
 missingno
 shap
 mlflow
+plotly
 streamlit
 scikit-learn
 fastapi==0.115.0

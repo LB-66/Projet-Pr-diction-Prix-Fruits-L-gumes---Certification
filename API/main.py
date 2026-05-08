@@ -10,6 +10,26 @@ import numpy as np                          # Calculs numériques
 import json                                 # Pour lire le fichier features.json
 import os                                   # Pour les chemins de fichiers
 
+
+
+from fastapi.security import APIKeyHeader
+from fastapi import Security, HTTPException, status
+import os
+
+# Clé API chargée depuis le fichier .env
+API_KEY = os.getenv("API_KEY", "fruits-legumes-api-key-2026")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+# Fonction qui vérifie la clé API sur chaque requête protégée
+async def verifier_cle_api(cle: str = Security(api_key_header)):
+    if cle != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Clé API invalide ou absente"
+        )
+    return cle
+
+
 # ── Création de l'application FastAPI ──
 # title et description apparaissent dans la doc Swagger
 app = FastAPI(
@@ -183,7 +203,7 @@ def get_features():
 @app.post("/predict",
           response_model=PredictionOutput,
           summary="Prédire le prix d'un fruit ou légume")
-def predict(data: PredictionInput):
+def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
     """
     Prédit le prix par cup equivalent d'un fruit ou légume.
     

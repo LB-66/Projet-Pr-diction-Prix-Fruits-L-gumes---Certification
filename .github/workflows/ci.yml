@@ -60,10 +60,20 @@ jobs:
       - name: Telecharger le code
         uses: actions/checkout@v4
 
+      - name: Installer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer les dependances pour le modele
+        run: |
+          python -m pip install --upgrade pip
+          pip install joblib numpy scikit-learn
+
       - name: Preparer le modele pour le build Docker
         run: |
           mkdir -p NOTEBOOKS/models
-          python3 - <<'EOF'
+          python - <<'EOF'
           import joblib, json, numpy as np
           from sklearn.ensemble import GradientBoostingRegressor
           X = np.random.rand(50, 12)
@@ -76,14 +86,6 @@ jobs:
               json.dump(features, f)
           print("Modele staging cree")
           EOF
-
-      - name: Installer Python pour le build
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Installer pip
-        run: python -m pip install --upgrade pip
 
       - name: Build image Docker API staging
         run: |
@@ -98,7 +100,7 @@ jobs:
       - name: Verifier les images Docker
         run: |
           docker images | grep fruits
-          echo "Deploy staging termine - images prets pour le deploiement"
+          echo "Deploy staging termine"
 
       - name: Resume du deploiement
         run: |
@@ -107,5 +109,4 @@ jobs:
           echo "========================================="
           echo "Image API      : fruits_api_staging:latest"
           echo "Image Streamlit: fruits_streamlit_staging:latest"
-          echo "Commande locale: docker run -p 8000:8000 fruits_api_staging"
           echo "========================================="

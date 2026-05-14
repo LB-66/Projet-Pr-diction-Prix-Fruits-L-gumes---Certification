@@ -14,7 +14,22 @@ import os                                   # Pour les chemins de fichiers
 
 from fastapi.security import APIKeyHeader
 from fastapi import Security, HTTPException, status
-import os
+
+import logging
+
+
+# ── Configuration du logging structuré ──
+os.makedirs("logs", exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[
+        logging.FileHandler("logs/api.log", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("fruits_legumes_api")
 
 # Clé API chargée depuis le fichier .env
 API_KEY = os.getenv("API_KEY", "fruits-legumes-api-key-2026")
@@ -253,3 +268,51 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
         rmse_modele     = 0.0886,
         statut          = "succès"
     )
+
+@app.post("/predict",
+          response_model=PredictionOutput,
+          summary="Prédire le prix d'un fruit ou légume")
+def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
+
+    valeurs = np.array([[
+        data.prix_detail, data.rendement, data.taille_cup,
+        data.forme_encoded, data.categorie_encoded, data.annee,
+        data.production_lbs, data.temp_moyenne, data.jours_gel,
+        data.prix_diesel, data.prix_electricite, data.urea
+    ]])
+
+    prix = float(modele.predict(valeurs)[0])
+
+    # ── Logging de chaque prédiction ──
+    logger.info(
+        f"PREDICTION | prix_detail={data.prix_detail} | "
+        f"forme={data.forme_encoded} | annee={data.annee} | "
+        f"prix_predit={round(prix, 4)}"
+    )
+
+    # ── Seuils d'alerte ──
+    if prix > 5.0:
+        logger.warning(
+            f"ALERTE SEUIL HAUT | prix_predit={round(prix, 4)} "
+            f"superieur a 5.00$/cup | verifier les donnees d entree"
+        )
+    elif prix < 0.01:
+        logger.warning(
+            f"ALERTE SEUIL BAS | prix_predit={round(prix, 4)} "
+            f"inferieur a 0.01$/cup | verifier les donnees d entree"
+        )
+
+    if data.prix_diesel > 6.0:
+        logger.warning(
+            f"ALERTE DIESEL ELEVE | prix_diesel={data.prix_diesel} "
+            f"superieur a 6.00$/gallon | impact sur les couts de transport"
+        )
+
+    return {
+        "prix_predit_cup": round(prix, 4),
+        "unite": "$/cup equivalent",
+        "modele": "XGBoost",
+        "r2_modele": 0.9755,
+        "rmse_modele": 0.0886,
+        "statut": "succès"
+    }

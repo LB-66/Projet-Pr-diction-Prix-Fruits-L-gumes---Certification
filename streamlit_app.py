@@ -115,6 +115,17 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════
+# CHEMIN DU MODELE (absolu pour le fallback)
+# ══════════════════════════════════════
+# On calcule le chemin absolu depuis l'emplacement de ce fichier
+# pour que le fallback fonctionne quelle que soit la façon dont
+# Streamlit est lancé
+APP_DIR    = os.path.dirname(os.path.abspath(__file__))
+PKL_PATH   = os.path.join(APP_DIR, "NOTEBOOKS", "models", "xgboost_fruits_legumes.pkl")
+API_URL    = "http://localhost:8000"
+API_KEY    = os.getenv("API_KEY", "fruits-legumes-api-key-2026")
+
+# ══════════════════════════════════════
 # DONNÉES
 # ══════════════════════════════════════
 
@@ -255,6 +266,53 @@ def get_contexte_eco():
         "source_diesel": "Estimation EIA 2024"
     }
 
+
+def predire_prix(payload):
+    """
+    Appelle l'API FastAPI pour obtenir une prédiction.
+    Si l'API est indisponible, charge le modèle .pkl directement (fallback).
+    Retourne le prix prédit ou None si tout échoue.
+    """
+    # Tentative via l'API FastAPI
+    try:
+        headers = {"X-API-Key": API_KEY}
+        rep = requests.post(
+            f"{API_URL}/predict",
+            json=payload,
+            headers=headers,
+            timeout=5
+        )
+        if rep.status_code == 200:
+            return rep.json()["prix_predit_cup"]
+    except Exception:
+        pass
+
+    # Fallback : chargement direct du .pkl si l'API est indisponible
+    # PKL_PATH est calculé de manière absolue en haut du fichier
+    if os.path.exists(PKL_PATH):
+        try:
+            modele = joblib.load(PKL_PATH)
+            valeurs = np.array([[
+                payload["prix_detail"],
+                payload["rendement"],
+                payload["taille_cup"],
+                payload["forme_encoded"],
+                payload["categorie_encoded"],
+                payload["annee"],
+                payload["production_lbs"],
+                payload["temp_moyenne"],
+                payload["jours_gel"],
+                payload["prix_diesel"],
+                payload["prix_electricite"],
+                payload["urea"]
+            ]])
+            return float(modele.predict(valeurs)[0])
+        except Exception:
+            pass
+
+    return None
+
+
 # ══════════════════════════════════════
 # NAVIGATION
 # ══════════════════════════════════════
@@ -308,7 +366,7 @@ if page == "Accueil":
       <div class="hero-stats">
         <div class="hero-stat"><div class="val">710</div><div class="lbl">Observations</div></div>
         <div class="hero-stat"><div class="val">150+</div><div class="lbl">Produits</div></div>
-        <div class="hero-stat"><div class="val orange">97.5%</div><div class="lbl">Précision du modèle</div></div>
+        <div class="hero-stat"><div class="val orange">97.8%</div><div class="lbl">Précision du modèle</div></div>
         <div class="hero-stat"><div class="val">6</div><div class="lbl">Sources de données</div></div>
       </div>
     </div>
@@ -484,7 +542,6 @@ elif page == "Prix et tendances":
 
     event = st.plotly_chart(fig_carte, use_container_width=True, on_select="rerun", key="carte_usa")
 
-    # Détails au clic
     if event and event.get("selection", {}).get("points"):
         idx  = event["selection"]["points"][0].get("point_index", 0)
         code = etats_df.iloc[idx]["code"]
@@ -496,7 +553,6 @@ elif page == "Prix et tendances":
             f'{PRODUITS_FR.get(p,{}).get("emoji","")} {PRODUITS_FR.get(p,{}).get("fr",p)}</span>'
             for p in data["produits"]
         ])
-        
 
         st.markdown(f"""
         <div style="background:#fff;border-radius:12px;padding:24px;border:2px solid #2d6a2d;margin-top:16px;">
@@ -650,23 +706,8 @@ elif page == "Prédiction":
                 "urea"             : contexte["urea"]
             }
 
-            # Appel API ou modèle local
-            prix_predit = None
-            try:
-                rep = requests.post("http://localhost:8000/predict", json=payload, timeout=5)
-                if rep.status_code == 200:
-                    prix_predit = rep.json()["prix_predit_cup"]
-            except Exception:
-                pkl = "NOTEBOOKS/models/xgboost_fruits_legumes.pkl"
-                if os.path.exists(pkl):
-                    m = joblib.load(pkl)
-                    v = np.array([[payload["prix_detail"], payload["rendement"],
-                                   payload["taille_cup"], payload["forme_encoded"],
-                                   payload["categorie_encoded"], payload["annee"],
-                                   payload["production_lbs"], payload["temp_moyenne"],
-                                   payload["jours_gel"], payload["prix_diesel"],
-                                   payload["prix_electricite"], payload["urea"]]])
-                    prix_predit = float(m.predict(v)[0])
+            # Appel API ou modèle local (via la fonction predire_prix)
+            prix_predit = predire_prix(payload)
 
             if prix_predit is not None:
                 entier  = int(prix_predit)
@@ -680,7 +721,7 @@ elif page == "Prédiction":
                   <div class="result-meta">
                     Prédiction {contexte['annee']} &nbsp;|&nbsp;
                     Zone : {etat_data['nom']} &nbsp;|&nbsp;
-                    Modèle XGBoost — Précision ±0.0886$/cup
+                    Modèle XGBoost — Précision ±0.0835$/cup
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -707,7 +748,11 @@ elif page == "Prédiction":
                         st.markdown(f"• {f_txt}")
                     st.markdown('</div>', unsafe_allow_html=True)
             else:
-                st.error("Modèle non disponible. Vérifie que le fichier .pkl est dans NOTEBOOKS/models/")
+                st.error(
+                    "La prédiction n'a pas pu être calculée. "
+                    "Vérifie que l'API est bien lancée (cd API && uvicorn main:app --reload --port 8000) "
+                    f"ou que le fichier .pkl existe à : {PKL_PATH}"
+                )
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -725,11 +770,11 @@ elif page == "Interprétabilité":
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
       <div class="metric-card">
         <div class="metric-icon vert">🎯</div>
-        <div class="metric-info"><div class="val">0.9755</div><div class="lbl">R² — Pouvoir prédictif</div></div>
+        <div class="metric-info"><div class="val">0.9782</div><div class="lbl">R² — Pouvoir prédictif</div></div>
       </div>
       <div class="metric-card">
         <div class="metric-icon orange">📉</div>
-        <div class="metric-info"><div class="val">0.0886$</div><div class="lbl">RMSE — Erreur quadratique</div></div>
+        <div class="metric-info"><div class="val">0.0835$</div><div class="lbl">RMSE — Erreur quadratique</div></div>
       </div>
       <div class="metric-card">
         <div class="metric-icon vert">📏</div>
@@ -746,9 +791,9 @@ elif page == "Interprétabilité":
     <div style="background:#fff3e0;border-radius:12px;padding:16px;margin-bottom:24px;border:1px solid #fed7aa;">
       <div style="font-weight:600;color:#f97316;margin-bottom:8px;">Comment lire ces indicateurs ?</div>
       <div style="font-size:13px;color:#4b5563;line-height:1.7;">
-        <b>R² = 0.9755</b> : le modèle explique 97.55% des variations de prix — résultat excellent.<br>
-        <b>RMSE = 0.0886$</b> : le modèle se trompe en moyenne de moins de 9 centimes par portion.<br>
-        <b>Pas d'overfitting</b> : l'écart entre R² test (0.9755) et cross-validation (0.956) est de 0.019,
+        <b>R² = 0.9782</b> : le modèle explique 97.82% des variations de prix — résultat excellent.<br>
+        <b>RMSE = 0.0835$</b> : le modèle se trompe en moyenne de moins de 9 centimes par portion.<br>
+        <b>Pas d'overfitting</b> : l'écart entre R² test (0.9782) et cross-validation (0.956) est de 0.022,
         bien en dessous du seuil critique de 0.05.
       </div>
     </div>
@@ -817,14 +862,15 @@ elif page == "Interprétabilité":
         st.plotly_chart(fig_shap, use_container_width=True)
 
     with col2:
-        for chemin, caption in [
-            ("NOTEBOOKS/models/shap_summary_plot.png", "Summary Plot — vue globale de toutes les features"),
-            ("NOTEBOOKS/models/shap_waterfall.png",    "Waterfall Plot — explication d'une prédiction précise")
+        # Chemin absolu pour les images SHAP
+        for chemin_rel, caption in [
+            (os.path.join(APP_DIR, "NOTEBOOKS", "models", "shap_summary_plot.png"), "Summary Plot — vue globale de toutes les features"),
+            (os.path.join(APP_DIR, "NOTEBOOKS", "models", "shap_waterfall.png"),    "Waterfall Plot — explication d'une prédiction précise")
         ]:
-            if os.path.exists(chemin):
-                st.image(chemin, caption=caption, use_container_width=True)
+            if os.path.exists(chemin_rel):
+                st.image(chemin_rel, caption=caption, use_container_width=True)
             else:
-                st.info(f"Lance le notebook 05 pour générer : {os.path.basename(chemin)}")
+                st.info(f"Lance le notebook 05 pour générer : {os.path.basename(chemin_rel)}")
 
     # ── Top 3 features ──
     st.markdown('<div class="section-title" style="margin-top:20px;">Les 3 facteurs les plus influents</div>', unsafe_allow_html=True)

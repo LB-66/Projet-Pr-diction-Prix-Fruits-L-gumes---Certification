@@ -1,22 +1,22 @@
 """
 API FastAPI — Prédiction des prix des fruits & légumes
-Compétences : C5, C8, C9
 """
 
-from fastapi import FastAPI, HTTPException  # Framework API
-from pydantic import BaseModel, Field       # Validation des données
-import joblib                               # Pour charger le modèle .pkl
-import numpy as np                          # Calculs numériques
-import json                                 # Pour lire le fichier features.json
-import os                                   # Pour les chemins de fichiers
-
-
-
+from fastapi import FastAPI, HTTPException
 from fastapi.security import APIKeyHeader
-from fastapi import Security, HTTPException, status
-
+from fastapi import Security, status
+from pydantic import BaseModel, Field
+import joblib
+import numpy as np
+import json
+import os
 import logging
+from dotenv import load_dotenv
 
+# ── Chargement des variables d'environnement ──
+# On cherche le .env à la racine du projet (un niveau au-dessus de API/)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # ── Configuration du logging structuré ──
 os.makedirs("logs", exist_ok=True)
@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("fruits_legumes_api")
 
-# Clé API chargée depuis le fichier .env
+# ── Clé API chargée depuis le fichier .env ──
 API_KEY = os.getenv("API_KEY", "fruits-legumes-api-key-2026")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -44,31 +44,22 @@ async def verifier_cle_api(cle: str = Security(api_key_header)):
         )
     return cle
 
-
 # ── Création de l'application FastAPI ──
-# title et description apparaissent dans la doc Swagger
 app = FastAPI(
     title="API Prédiction Prix Fruits & Légumes",
     description="""
     API REST pour prédire le prix par cup equivalent des fruits et légumes.
     
-    **Modèle** : XGBoost — R²=0.9755 — RMSE=0.0886 $/cup
+    **Modèle** : XGBoost Grid Search — R²=0.9782 — RMSE=0.0835 $/cup
     
     **Source données** : USDA ERS enrichi (météo, énergie, engrais)
     
-    **Certification** : RNCP37827 DevIA Simplon 2026 — Compétences C5, C8, C9
+    **Certification** : RNCP37827 DevIA Simplon 2026
     """,
     version="1.0.0"
 )
 
 # ── Chargement du modèle au démarrage ──
-# On charge le .pkl une seule fois au lancement — pas à chaque requête
-#CHEMIN_MODELE   = "NOTEBOOKS/models/xgboost_fruits_legumes.pkl"
-#CHEMIN_FEATURES = "NOTEBOOKS/models/features.json"
-
-import os
-
-BASE_DIR        = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHEMIN_MODELE   = os.path.join(BASE_DIR, "NOTEBOOKS", "models", "xgboost_fruits_legumes.pkl")
 CHEMIN_FEATURES = os.path.join(BASE_DIR, "NOTEBOOKS", "models", "features.json")
 
@@ -87,7 +78,6 @@ if os.path.exists(CHEMIN_FEATURES):
     FEATURES = config['features']
     print(f"Features chargées : {FEATURES}")
 else:
-    # Features par défaut si le fichier n'existe pas
     FEATURES = [
         'prix_detail', 'rendement', 'taille_cup',
         'forme_encoded', 'categorie_encoded', 'annee',
@@ -98,39 +88,37 @@ else:
 
 
 # ── Schéma des données d'entrée ──
-# Pydantic valide automatiquement que toutes les valeurs sont du bon type
 class PredictionInput(BaseModel):
     """Données nécessaires pour prédire le prix d'un fruit ou légume"""
 
-    prix_detail     : float = Field(..., description="Prix en rayon ($/lb)", example=1.50)
-    rendement       : float = Field(..., description="Part utilisable (0 à 1)", example=0.75)
-    taille_cup      : float = Field(..., description="Taille de la portion (lb)", example=0.33)
-    forme_encoded   : int   = Field(..., description="Fresh=0, Canned=1, Frozen=2, Juice=3, Dried=4", example=0)
-    categorie_encoded: int  = Field(..., description="fruit=1, legume=0", example=1)
-    annee           : int   = Field(..., description="Année (2013-2026)", example=2024)
-    production_lbs  : float = Field(..., description="Volume production (lbs)", example=500000.0)
-    temp_moyenne    : float = Field(..., description="Température moyenne (°C)", example=15.0)
-    jours_gel       : float = Field(..., description="Nombre de jours de gel", example=10.0)
-    prix_diesel     : float = Field(..., description="Prix diesel ($/gallon)", example=3.50)
-    prix_electricite: float = Field(..., description="Prix électricité (¢/kWh)", example=12.0)
-    urea            : float = Field(..., description="Prix urée ($/tonne)", example=350.0)
+    prix_detail      : float = Field(..., description="Prix en rayon ($/lb)", example=1.50)
+    rendement        : float = Field(..., description="Part utilisable (0 à 1)", example=0.75)
+    taille_cup       : float = Field(..., description="Taille de la portion (lb)", example=0.33)
+    forme_encoded    : int   = Field(..., description="Fresh=0, Canned=1, Frozen=2, Juice=3, Dried=4", example=0)
+    categorie_encoded: int   = Field(..., description="fruit=1, legume=0", example=1)
+    annee            : int   = Field(..., description="Année (2013-2026)", example=2024)
+    production_lbs   : float = Field(..., description="Volume production (lbs)", example=500000.0)
+    temp_moyenne     : float = Field(..., description="Température moyenne (°C)", example=15.0)
+    jours_gel        : float = Field(..., description="Nombre de jours de gel", example=10.0)
+    prix_diesel      : float = Field(..., description="Prix diesel ($/gallon)", example=3.50)
+    prix_electricite : float = Field(..., description="Prix électricité (¢/kWh)", example=12.0)
+    urea             : float = Field(..., description="Prix urée ($/tonne)", example=350.0)
 
     class Config:
-        # Exemple affiché dans la documentation Swagger
         json_schema_extra = {
             "example": {
-                "prix_detail"     : 1.50,
-                "rendement"       : 0.75,
-                "taille_cup"      : 0.33,
-                "forme_encoded"   : 0,
+                "prix_detail"      : 1.50,
+                "rendement"        : 0.75,
+                "taille_cup"       : 0.33,
+                "forme_encoded"    : 0,
                 "categorie_encoded": 1,
-                "annee"           : 2024,
-                "production_lbs"  : 500000.0,
-                "temp_moyenne"    : 15.0,
-                "jours_gel"       : 10.0,
-                "prix_diesel"     : 3.50,
-                "prix_electricite": 12.0,
-                "urea"            : 350.0
+                "annee"            : 2024,
+                "production_lbs"   : 500000.0,
+                "temp_moyenne"     : 15.0,
+                "jours_gel"        : 10.0,
+                "prix_diesel"      : 3.50,
+                "prix_electricite" : 12.0,
+                "urea"             : 350.0
             }
         }
 
@@ -138,12 +126,12 @@ class PredictionInput(BaseModel):
 # ── Schéma des données de sortie ──
 class PredictionOutput(BaseModel):
     """Résultat de la prédiction"""
-    prix_predit_cup : float  # Prix prédit par cup equivalent
-    unite           : str    # Unité de la prédiction
-    modele          : str    # Modèle utilisé
-    r2_modele       : float  # Performance du modèle
-    rmse_modele     : float  # Erreur moyenne du modèle
-    statut          : str    # Statut de la prédiction
+    prix_predit_cup : float
+    unite           : str
+    modele          : str
+    r2_modele       : float
+    rmse_modele     : float
+    statut          : str
 
 
 # ══════════════════════════════════════
@@ -153,21 +141,18 @@ class PredictionOutput(BaseModel):
 # ── GET / — Page d'accueil ──
 @app.get("/", summary="Page d'accueil")
 def accueil():
-    """
-    Point d'entrée de l'API.
-    Retourne les informations générales et les endpoints disponibles.
-    """
+    """Point d'entrée de l'API."""
     return {
-        "message"    : "API Prédiction Prix Fruits & Légumes",
-        "version"    : "1.0.0",
-        "modele"     : "XGBoost",
-        "statut"     : "opérationnel" if modele is not None else "modèle non chargé",
-        "endpoints"  : {
-            "GET  /"          : "Cette page",
-            "GET  /health"    : "Vérification santé de l'API",
-            "POST /predict"   : "Prédire le prix d'un fruit ou légume",
-            "GET  /features"  : "Liste des features attendues",
-            "GET  /docs"      : "Documentation Swagger interactive"
+        "message" : "API Prédiction Prix Fruits & Légumes",
+        "version" : "1.0.0",
+        "modele"  : "XGBoost",
+        "statut"  : "opérationnel" if modele is not None else "modèle non chargé",
+        "endpoints": {
+            "GET  /"        : "Cette page",
+            "GET  /health"  : "Vérification santé de l'API",
+            "POST /predict" : "Prédire le prix d'un fruit ou légume",
+            "GET  /features": "Liste des features attendues",
+            "GET  /docs"    : "Documentation Swagger interactive"
         }
     }
 
@@ -175,41 +160,35 @@ def accueil():
 # ── GET /health — Vérification santé ──
 @app.get("/health", summary="Vérification santé")
 def health_check():
-    """
-    Vérifie que l'API et le modèle sont opérationnels.
-    Utilisé par Docker et les systèmes de monitoring.
-    """
+    """Vérifie que l'API et le modèle sont opérationnels."""
     return {
-        "statut"         : "ok",
-        "modele_charge"  : modele is not None,
-        "nb_features"    : len(FEATURES),
-        "version_api"    : "1.0.0"
+        "statut"        : "ok",
+        "modele_charge" : modele is not None,
+        "nb_features"   : len(FEATURES),
+        "version_api"   : "1.0.0"
     }
 
 
 # ── GET /features — Liste des features ──
 @app.get("/features", summary="Liste des features")
 def get_features():
-    """
-    Retourne la liste des features attendues par le modèle
-    dans l'ordre exact à respecter.
-    """
+    """Retourne la liste des features attendues par le modèle."""
     return {
-        "features"   : FEATURES,
-        "nb_features": len(FEATURES),
-        "description": {
-            "prix_detail"     : "Prix en rayon ($/lb)",
-            "rendement"       : "Part utilisable après préparation (0 à 1)",
-            "taille_cup"      : "Taille de la portion standard (lb)",
-            "forme_encoded"   : "Fresh=0, Canned=1, Frozen=2, Juice=3, Dried=4",
+        "features"    : FEATURES,
+        "nb_features" : len(FEATURES),
+        "description" : {
+            "prix_detail"      : "Prix en rayon ($/lb)",
+            "rendement"        : "Part utilisable après préparation (0 à 1)",
+            "taille_cup"       : "Taille de la portion standard (lb)",
+            "forme_encoded"    : "Fresh=0, Canned=1, Frozen=2, Juice=3, Dried=4",
             "categorie_encoded": "fruit=1, legume=0",
-            "annee"           : "Année de la donnée (2013-2026)",
-            "production_lbs"  : "Volume de production par état (lbs)",
-            "temp_moyenne"    : "Température annuelle de la zone (°C)",
-            "jours_gel"       : "Nombre de jours sous 0°C",
-            "prix_diesel"     : "Prix du diesel ($/gallon)",
-            "prix_electricite": "Prix de l'électricité (¢/kWh)",
-            "urea"            : "Prix de l'urée ($/tonne)"
+            "annee"            : "Année de la donnée (2013-2026)",
+            "production_lbs"   : "Volume de production par état (lbs)",
+            "temp_moyenne"     : "Température annuelle de la zone (°C)",
+            "jours_gel"        : "Nombre de jours sous 0°C",
+            "prix_diesel"      : "Prix du diesel ($/gallon)",
+            "prix_electricite" : "Prix de l'électricité (¢/kWh)",
+            "urea"             : "Prix de l'urée ($/tonne)"
         }
     }
 
@@ -225,8 +204,6 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
     **Entrée** : les 12 features du modèle XGBoost
     
     **Sortie** : le prix prédit en $/cup avec les métriques du modèle
-    
-    **Exemple** : une pomme fraîche avec prix_detail=1.50$ → ~0.75$/cup
     """
 
     # Vérification que le modèle est chargé
@@ -237,7 +214,6 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
         )
 
     # Construction du tableau de features dans l'ordre exact
-    # L'ordre doit correspondre exactement à celui utilisé lors de l'entraînement
     valeurs = np.array([[
         data.prix_detail,
         data.rendement,
@@ -254,43 +230,16 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
     ]])
 
     # Prédiction avec le modèle XGBoost
-    prix_predit = float(modele.predict(valeurs)[0])
-
-    # On arrondit à 4 décimales pour la lisibilité
-    prix_predit = round(prix_predit, 4)
-
-    # Retour de la prédiction avec les métadonnées
-    return PredictionOutput(
-        prix_predit_cup = prix_predit,
-        unite           = "$/cup equivalent",
-        modele          = "XGBoost",
-        r2_modele       = 0.9755,
-        rmse_modele     = 0.0886,
-        statut          = "succès"
-    )
-
-@app.post("/predict",
-          response_model=PredictionOutput,
-          summary="Prédire le prix d'un fruit ou légume")
-def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
-
-    valeurs = np.array([[
-        data.prix_detail, data.rendement, data.taille_cup,
-        data.forme_encoded, data.categorie_encoded, data.annee,
-        data.production_lbs, data.temp_moyenne, data.jours_gel,
-        data.prix_diesel, data.prix_electricite, data.urea
-    ]])
-
     prix = float(modele.predict(valeurs)[0])
 
-    # ── Logging de chaque prédiction ──
+    # Logging de chaque prédiction
     logger.info(
         f"PREDICTION | prix_detail={data.prix_detail} | "
         f"forme={data.forme_encoded} | annee={data.annee} | "
         f"prix_predit={round(prix, 4)}"
     )
 
-    # ── Seuils d'alerte ──
+    # Seuils d'alerte
     if prix > 5.0:
         logger.warning(
             f"ALERTE SEUIL HAUT | prix_predit={round(prix, 4)} "
@@ -308,11 +257,11 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
             f"superieur a 6.00$/gallon | impact sur les couts de transport"
         )
 
-    return {
-        "prix_predit_cup": round(prix, 4),
-        "unite": "$/cup equivalent",
-        "modele": "XGBoost",
-        "r2_modele": 0.9755,
-        "rmse_modele": 0.0886,
-        "statut": "succès"
-    }
+    return PredictionOutput(
+        prix_predit_cup = round(prix, 4),
+        unite           = "$/cup equivalent",
+        modele          = "XGBoost",
+        r2_modele       = 0.9782,
+        rmse_modele     = 0.0835,
+        statut          = "succès"
+    )

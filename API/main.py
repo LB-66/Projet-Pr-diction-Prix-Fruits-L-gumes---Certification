@@ -12,9 +12,9 @@ import json
 import os
 import logging
 from dotenv import load_dotenv
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # ── Chargement des variables d'environnement ──
-# On cherche le .env à la racine du projet (un niveau au-dessus de API/)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
@@ -58,6 +58,9 @@ app = FastAPI(
     """,
     version="1.0.0"
 )
+
+# ── Prometheus — expose les métriques sur /metrics ──
+Instrumentator().instrument(app).expose(app)
 
 # ── Chargement du modèle au démarrage ──
 CHEMIN_MODELE   = os.path.join(BASE_DIR, "NOTEBOOKS", "models", "xgboost_fruits_legumes.pkl")
@@ -152,6 +155,7 @@ def accueil():
             "GET  /health"  : "Vérification santé de l'API",
             "POST /predict" : "Prédire le prix d'un fruit ou légume",
             "GET  /features": "Liste des features attendues",
+            "GET  /metrics" : "Métriques Prometheus",
             "GET  /docs"    : "Documentation Swagger interactive"
         }
     }

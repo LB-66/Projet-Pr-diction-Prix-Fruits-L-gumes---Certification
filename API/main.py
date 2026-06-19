@@ -11,6 +11,7 @@ import numpy as np
 import json
 import os
 import logging
+import psycopg2
 from dotenv import load_dotenv
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -69,17 +70,17 @@ CHEMIN_FEATURES = os.path.join(BASE_DIR, "NOTEBOOKS", "models", "features.json")
 # Chargement du modèle
 if os.path.exists(CHEMIN_MODELE):
     modele = joblib.load(CHEMIN_MODELE)
-    print(f"Modèle chargé : {CHEMIN_MODELE}")
+    print(f"Modele charge : {CHEMIN_MODELE}")
 else:
     modele = None
-    print(f"ATTENTION : modèle non trouvé — {CHEMIN_MODELE}")
+    print(f"ATTENTION : modele non trouve — {CHEMIN_MODELE}")
 
 # Chargement de la liste des features
 if os.path.exists(CHEMIN_FEATURES):
     with open(CHEMIN_FEATURES, 'r') as f:
         config = json.load(f)
     FEATURES = config['features']
-    print(f"Features chargées : {FEATURES}")
+    print(f"Features chargees : {FEATURES}")
 else:
     FEATURES = [
         'prix_detail', 'rendement', 'taille_cup',
@@ -87,25 +88,23 @@ else:
         'production_lbs', 'temp_moyenne', 'jours_gel',
         'prix_diesel', 'prix_electricite', 'urea'
     ]
-    print("Features par défaut utilisées")
+    print("Features par defaut utilisees")
 
 
 # ── Schéma des données d'entrée ──
 class PredictionInput(BaseModel):
-    """Données nécessaires pour prédire le prix d'un fruit ou légume"""
-
     prix_detail      : float = Field(..., description="Prix en rayon ($/lb)", example=1.50)
-    rendement        : float = Field(..., description="Part utilisable (0 à 1)", example=0.75)
+    rendement        : float = Field(..., description="Part utilisable (0 a 1)", example=0.75)
     taille_cup       : float = Field(..., description="Taille de la portion (lb)", example=0.33)
     forme_encoded    : int   = Field(..., description="Fresh=0, Canned=1, Frozen=2, Juice=3, Dried=4", example=0)
     categorie_encoded: int   = Field(..., description="fruit=1, legume=0", example=1)
-    annee            : int   = Field(..., description="Année (2013-2026)", example=2024)
+    annee            : int   = Field(..., description="Annee (2013-2026)", example=2024)
     production_lbs   : float = Field(..., description="Volume production (lbs)", example=500000.0)
-    temp_moyenne     : float = Field(..., description="Température moyenne (°C)", example=15.0)
+    temp_moyenne     : float = Field(..., description="Temperature moyenne (C)", example=15.0)
     jours_gel        : float = Field(..., description="Nombre de jours de gel", example=10.0)
     prix_diesel      : float = Field(..., description="Prix diesel ($/gallon)", example=3.50)
-    prix_electricite : float = Field(..., description="Prix électricité (¢/kWh)", example=12.0)
-    urea             : float = Field(..., description="Prix urée ($/tonne)", example=350.0)
+    prix_electricite : float = Field(..., description="Prix electricite (c/kWh)", example=12.0)
+    urea             : float = Field(..., description="Prix uree ($/tonne)", example=350.0)
 
     class Config:
         json_schema_extra = {
@@ -128,7 +127,6 @@ class PredictionInput(BaseModel):
 
 # ── Schéma des données de sortie ──
 class PredictionOutput(BaseModel):
-    """Résultat de la prédiction"""
     prix_predit_cup : float
     unite           : str
     modele          : str
@@ -141,30 +139,28 @@ class PredictionOutput(BaseModel):
 # ENDPOINTS
 # ══════════════════════════════════════
 
-# ── GET / — Page d'accueil ──
 @app.get("/", summary="Page d'accueil")
 def accueil():
-    """Point d'entrée de l'API."""
     return {
-        "message" : "API Prédiction Prix Fruits & Légumes",
+        "message" : "API Prediction Prix Fruits & Legumes",
         "version" : "1.0.0",
         "modele"  : "XGBoost",
-        "statut"  : "opérationnel" if modele is not None else "modèle non chargé",
+        "statut"  : "operationnel" if modele is not None else "modele non charge",
         "endpoints": {
-            "GET  /"        : "Cette page",
-            "GET  /health"  : "Vérification santé de l'API",
-            "POST /predict" : "Prédire le prix d'un fruit ou légume",
-            "GET  /features": "Liste des features attendues",
-            "GET  /metrics" : "Métriques Prometheus",
-            "GET  /docs"    : "Documentation Swagger interactive"
+            "GET  /"           : "Cette page",
+            "GET  /health"     : "Verification sante de l'API",
+            "POST /predict"    : "Predire le prix d'un fruit ou legume",
+            "GET  /features"   : "Liste des features attendues",
+            "GET  /produits"   : "Liste des produits depuis PostgreSQL",
+            "GET  /prix/stats" : "Prix moyen par categorie depuis PostgreSQL",
+            "GET  /metrics"    : "Metriques Prometheus",
+            "GET  /docs"       : "Documentation Swagger interactive"
         }
     }
 
 
-# ── GET /health — Vérification santé ──
-@app.get("/health", summary="Vérification santé")
+@app.get("/health", summary="Verification sante")
 def health_check():
-    """Vérifie que l'API et le modèle sont opérationnels."""
     return {
         "statut"        : "ok",
         "modele_charge" : modele is not None,
@@ -173,51 +169,38 @@ def health_check():
     }
 
 
-# ── GET /features — Liste des features ──
 @app.get("/features", summary="Liste des features")
 def get_features():
-    """Retourne la liste des features attendues par le modèle."""
     return {
         "features"    : FEATURES,
         "nb_features" : len(FEATURES),
         "description" : {
             "prix_detail"      : "Prix en rayon ($/lb)",
-            "rendement"        : "Part utilisable après préparation (0 à 1)",
+            "rendement"        : "Part utilisable apres preparation (0 a 1)",
             "taille_cup"       : "Taille de la portion standard (lb)",
             "forme_encoded"    : "Fresh=0, Canned=1, Frozen=2, Juice=3, Dried=4",
             "categorie_encoded": "fruit=1, legume=0",
-            "annee"            : "Année de la donnée (2013-2026)",
-            "production_lbs"   : "Volume de production par état (lbs)",
-            "temp_moyenne"     : "Température annuelle de la zone (°C)",
-            "jours_gel"        : "Nombre de jours sous 0°C",
+            "annee"            : "Annee de la donnee (2013-2026)",
+            "production_lbs"   : "Volume de production par etat (lbs)",
+            "temp_moyenne"     : "Temperature annuelle de la zone (C)",
+            "jours_gel"        : "Nombre de jours sous 0C",
             "prix_diesel"      : "Prix du diesel ($/gallon)",
-            "prix_electricite" : "Prix de l'électricité (¢/kWh)",
-            "urea"             : "Prix de l'urée ($/tonne)"
+            "prix_electricite" : "Prix de l'electricite (c/kWh)",
+            "urea"             : "Prix de l'uree ($/tonne)"
         }
     }
 
 
-# ── POST /predict — Prédiction principale ──
 @app.post("/predict",
           response_model=PredictionOutput,
-          summary="Prédire le prix d'un fruit ou légume")
+          summary="Predire le prix d'un fruit ou legume")
 def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
-    """
-    Prédit le prix par cup equivalent d'un fruit ou légume.
-    
-    **Entrée** : les 12 features du modèle XGBoost
-    
-    **Sortie** : le prix prédit en $/cup avec les métriques du modèle
-    """
-
-    # Vérification que le modèle est chargé
     if modele is None:
         raise HTTPException(
             status_code=503,
-            detail="Modèle non disponible — vérifiez que le fichier .pkl existe"
+            detail="Modele non disponible"
         )
 
-    # Construction du tableau de features dans l'ordre exact
     valeurs = np.array([[
         data.prix_detail,
         data.rendement,
@@ -233,33 +216,21 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
         data.urea
     ]])
 
-    # Prédiction avec le modèle XGBoost
     prix = float(modele.predict(valeurs)[0])
 
-    # Logging de chaque prédiction
     logger.info(
         f"PREDICTION | prix_detail={data.prix_detail} | "
         f"forme={data.forme_encoded} | annee={data.annee} | "
         f"prix_predit={round(prix, 4)}"
     )
 
-    # Seuils d'alerte
     if prix > 5.0:
-        logger.warning(
-            f"ALERTE SEUIL HAUT | prix_predit={round(prix, 4)} "
-            f"superieur a 5.00$/cup | verifier les donnees d entree"
-        )
+        logger.warning(f"ALERTE SEUIL HAUT | prix_predit={round(prix, 4)}")
     elif prix < 0.01:
-        logger.warning(
-            f"ALERTE SEUIL BAS | prix_predit={round(prix, 4)} "
-            f"inferieur a 0.01$/cup | verifier les donnees d entree"
-        )
+        logger.warning(f"ALERTE SEUIL BAS | prix_predit={round(prix, 4)}")
 
     if data.prix_diesel > 6.0:
-        logger.warning(
-            f"ALERTE DIESEL ELEVE | prix_diesel={data.prix_diesel} "
-            f"superieur a 6.00$/gallon | impact sur les couts de transport"
-        )
+        logger.warning(f"ALERTE DIESEL ELEVE | prix_diesel={data.prix_diesel}")
 
     return PredictionOutput(
         prix_predit_cup = round(prix, 4),
@@ -267,5 +238,80 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
         modele          = "XGBoost",
         r2_modele       = 0.9782,
         rmse_modele     = 0.0835,
-        statut          = "succès"
+        statut          = "succes"
     )
+
+
+# ══════════════════════════════════════
+# ENDPOINTS DONNÉES — C5
+# ══════════════════════════════════════
+
+def get_conn():
+    """Connexion a PostgreSQL avec encodage UTF8"""
+    conn = psycopg2.connect(
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=os.getenv("POSTGRES_PORT", "5432"),
+        dbname=os.getenv("POSTGRES_DB", "fruits_legumes_db"),
+        user=os.getenv("POSTGRES_USER", "admin"),
+        password=os.getenv("POSTGRES_PASSWORD", "admin123")
+    )
+    conn.set_client_encoding("UTF8")
+    return conn
+
+
+@app.get("/produits", summary="Liste des produits de la base")
+def get_produits():
+    """Retourne les 20 premiers produits depuis PostgreSQL."""
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT nom, categorie, forme FROM produit ORDER BY categorie, nom LIMIT 20"
+        )
+        resultats = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {
+            "produits": [
+                {"nom": r[0], "categorie": r[1], "forme": r[2]}
+                for r in resultats
+            ],
+            "total"  : len(resultats),
+            "source" : "PostgreSQL - table produit"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Base indisponible : {e}")
+
+
+@app.get("/prix/stats", summary="Prix moyen par categorie")
+def get_prix_stats():
+    """Prix moyen par categorie depuis PostgreSQL."""
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT p.categorie, "
+            "ROUND(AVG(pr.prix_cup)::numeric, 4) AS prix_moyen, "
+            "COUNT(*) AS nb "
+            "FROM prix pr "
+            "JOIN produit p ON pr.id_produit = p.id_produit "
+            "GROUP BY p.categorie "
+            "ORDER BY prix_moyen DESC"
+        )
+        resultats = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {
+            "stats": [
+                {
+                    "categorie"      : r[0],
+                    "prix_moyen_cup" : float(r[1]),
+                    "nb_observations": r[2]
+                }
+                for r in resultats
+            ],
+            "source": "PostgreSQL - tables prix + produit"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Base indisponible : {e}")
+    

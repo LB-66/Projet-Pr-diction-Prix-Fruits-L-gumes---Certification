@@ -238,7 +238,7 @@ def predict(data: PredictionInput, cle: str = Security(verifier_cle_api)):
         modele          = "XGBoost",
         r2_modele       = 0.9782,
         rmse_modele     = 0.0835,
-        statut          = "succes"
+        statut          = "succès"
     )
 
 
